@@ -200,6 +200,12 @@ def simulation_results_as_data_frame(survey_scenario = None, column_names = None
     return data_frame
 
 
+def dump_to_stata(survey_scenario, directory_path):
+    assert directory is not None
+    assert os.path.exists(directory_path)
+
+
+
 if __name__ == '__main__':
     import logging
     log = logging.getLogger(__name__)
