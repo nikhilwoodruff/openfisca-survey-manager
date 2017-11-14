@@ -1,4 +1,35 @@
+
 # Changelog
+
+## 0.8.13
+* Fix a bug in `create_data_frame_by_entity`
+
+## 0.8.12
+* Fix a bug resulting from pandas [v0.20 pivot_table fix](https://github.com/pandas-dev/pandas/pull/13554)
+## 0.8.11
+
+* Decrease logs verbosity by starting using the DEBUG level more often
+
+## 0.8.10
+
+* Fix a bug in `compute_pivot_table` which was no more able to compute non-difference pivot-table
+
+## 0.8.9
+
+* Fix a bug when variables are missing form the tax and benefit system in `create_entity_by_dataframe`
+
+## 0.8.8
+
+* Improve handling of difference option in `create_entity_by_dataframe`
+
+## 0.8.7
+
+* Improve `create_entity_by_dataframe` by adding `expressions` and `merge` options and
+enhancing `filter_by`
+
+## 0.8.4
+
+* Fix `summarize_variable` when dealing with neutralized variables
 
 ## 0.8.3
 
