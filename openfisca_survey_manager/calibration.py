@@ -36,7 +36,7 @@ class Calibration(object):
     def __init__(self, survey_scenario = None):
         self.filter_by_name = "menage_ordinaire"  # TODO should migrate this to france
         assert survey_scenario is not None
-        self._set_survey_scenario(survey_scenario)
+        self._set_survey_scenario(survey_scenario, period = None)
 
     def reset(self):
         """
@@ -46,15 +46,16 @@ class Calibration(object):
         holder = simulation.get_holder(self.weight_name)
         holder.array = numpy.array(self.initial_weight, dtype = holder.variable.dtype)
 
-    def _set_survey_scenario(self, survey_scenario):
+    def _set_survey_scenario(self, survey_scenario, period = None):
         """
         Set simulation
         """
         self.survey_scenario = survey_scenario
         # TODO deal with baseline if reform is present
-        if survey_scenario.simulation is None:
-            survey_scenario.simulation = survey_scenario.new_simulation()
-        period = self.simulation.period
+        # TODO proper deal with period
+        self.simulation = survey_scenario.simulation
+        if period is None:
+            period = self.survey_scenario.year
         self.filter_by = filter_by = survey_scenario.calculate_variable(
             variable = self.filter_by_name, period = period)
         # TODO: shoud not be france specific
