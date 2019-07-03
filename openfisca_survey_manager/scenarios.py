@@ -221,7 +221,8 @@ class AbstractSurveyScenario(object):
 
         return aggregate
 
-    def compute_marginal_tax_rate(self, target_variable, period, use_baseline = False):
+    def compute_marginal_tax_rate(self, target_variable, period, use_baseline = False,
+                    value_for_zero_varying_variable = 0):
         """
             Compute marginal a rate of a target with respect to a varying variable.
 
@@ -272,7 +273,11 @@ class AbstractSurveyScenario(object):
         modified_target = modified_simulation.calculate_add(target_variable, period = period)
         target = simulation.calculate_add(target_variable, period = period)
         
-        marginal_rate = 1 - (modified_target - target) / (modified_varying - varying)
+        numerator = modified_target - target
+        denominator = modified_varying - varying
+        marginal_rate = np.divide(numerator, denominator, 
+                                    out = np.full_like(numerator, value_for_zero_varying_variable, dtype = np.float), 
+                                    where = (denominator != 0))
         
         return marginal_rate
 
