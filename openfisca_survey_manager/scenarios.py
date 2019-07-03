@@ -229,6 +229,8 @@ class AbstractSurveyScenario(object):
             :param string target_variable: the variable which marginal tax rate is computed
             :param Period period: the period at which the the marginal tax rate is computed
             :param bool use_baseline: compute the marginal tax rate for the baseline system
+            :param value_for_zero_varying_variable: value of MTR when the varying variable is zero
+            :type value_for_zero_varying_variable: float, optional
         """
         varying_variable = self.varying_variable
         if use_baseline:
