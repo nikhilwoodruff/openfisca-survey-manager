@@ -4,11 +4,14 @@ from __future__ import division
 
 from typing import Dict, List
 
+
+import re
+
+
 import logging
 import os
 import numpy as np
 import pandas as pd
-import re
 
 
 import humanize
@@ -243,7 +246,7 @@ class AbstractSurveyScenario(object):
             modified_simulation = self._modified_simulation
 
         assert target_variable in self.tax_benefit_system.variables
-        
+
         variables_belong_to_same_entity = (
             self.tax_benefit_system.variables[varying_variable].entity.key
             == self.tax_benefit_system.variables[target_variable].entity.key
@@ -257,30 +260,33 @@ class AbstractSurveyScenario(object):
             varying = simulation.calculate_add(varying_variable, period = period)
         else:
             target_variable_entity_key = self.tax_benefit_system.variables[target_variable].entity.key
+
             def cast_to_target_entity(simulation):
                 population = simulation.populations[target_variable_entity_key]
                 df = (pd.DataFrame(
-                    dict({
+                    {
                         'members_entity_id': population._members_entity_id,
                         varying_variable: simulation.calculate_add(varying_variable, period = period)
-                    })
+                        }
                     ).groupby('members_entity_id').sum())
                 varying_variable_for_target_entity = df.loc[population.ids, varying_variable].values
                 return varying_variable_for_target_entity
-            
+
             modified_varying = cast_to_target_entity(modified_simulation)
             varying = cast_to_target_entity(simulation)
 
-        
         modified_target = modified_simulation.calculate_add(target_variable, period = period)
         target = simulation.calculate_add(target_variable, period = period)
-        
+
         numerator = modified_target - target
         denominator = modified_varying - varying
-        marginal_rate = np.divide(numerator, denominator, 
-                                    out = np.full_like(numerator, value_for_zero_varying_variable, dtype = np.float), 
-                                    where = (denominator != 0))
-        
+        marginal_rate = 1 - np.divide(
+            numerator,
+            denominator,
+            out = np.full_like(numerator, value_for_zero_varying_variable, dtype = np.float),
+            where = (denominator != 0)
+            )
+
         return marginal_rate
 
     def compute_pivot_table(self, aggfunc = 'mean', columns = None, difference = False, filter_by = None, index = None,
