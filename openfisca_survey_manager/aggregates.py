@@ -92,10 +92,11 @@ class AbstractAggregates(object):
                         variable, use_baseline = use_baseline, filter_by = filter_by)
                     data_frame = pd.concat((data_frame, variable_data_frame))
 
-                data_frame.rename(columns = {
-                    'amount': '{}_amount'.format(simulation_type),
-                    'beneficiaries': '{}_beneficiaries'.format(simulation_type),
-                    },
+                data_frame.rename(
+                    columns = {
+                        'amount': '{}_amount'.format(simulation_type),
+                        'beneficiaries': '{}_beneficiaries'.format(simulation_type),
+                        },
                     inplace = True
                     )
                 data_frame_by_simulation_type[simulation_type] = data_frame
@@ -109,13 +110,15 @@ class AbstractAggregates(object):
             axis = 1,
             sort = True,
             ).loc[self.aggregate_variables]
+
         return self.base_data_frame
 
     def compute_difference(self, target = "baseline", default = 'actual', amount = True, beneficiaries = True,
-            absolute = True, relative = True):
+        absolute = True, relative = True):
         '''
         Compute and add relative and/or absolute differences to the data_frame
         '''
+
         assert relative or absolute
         assert amount or beneficiaries
         base_data_frame = self.base_data_frame if self.base_data_frame is not None else self.compute_aggregates()
@@ -241,14 +244,15 @@ class AbstractAggregates(object):
             ])
 
     def export_table(self,
-            path = None,
-            absolute = True,
-            amount = True,
-            beneficiaries = True,
-            default = 'actual',
-            relative = True,
-            table_format = None,
-            target = "reform"):
+        path = None,
+        absolute = True,
+        amount = True,
+        beneficiaries = True,
+        default = 'actual',
+        relative = True,
+        table_format = None,
+        target = "reform"
+        ):
         """
         Save the table to csv or excel (default) format
         """
@@ -293,21 +297,22 @@ class AbstractAggregates(object):
     def get_calibration_coeffcient(self, target = "reform"):
         df = self.compute_aggregates(
             actual = True,
-            use_baseline = 'baseline' == target,
-            reform = 'reform' == target,
+            use_baseline = target == 'baseline' ,
+            reform = target == 'reform',
             )
         return df['{}_amount'.format(target)] / df['actual_amount']
 
     def get_data_frame(
-            self,
-            absolute = True,
-            amount = True,
-            beneficiaries = True,
-            default = 'actual',
-            formatting = True,
-            relative = True,
-            target = "reform",
-            ):
+        self,
+        absolute = True,
+        amount = True,
+        beneficiaries = True,
+        default = 'actual',
+        formatting = True,
+        relative = True,
+        target = "reform",
+        ):
+
         assert target is None or target in ['reform', 'baseline']
 
         columns = self.labels.keys()
@@ -381,8 +386,10 @@ class AbstractAggregates(object):
             import numpy as np
             for column in df.columns:
                 if issubclass(np.dtype(df[column]).type, np.number):
-                    df[column] = (df[column]
-                        .apply(lambda x: "{:d}".format(int(round(x))) if str(x) != 'nan' else 'nan')
+                    df[column] = (
+                        df[column].apply(
+                            lambda x: "{:d}".format(int(round(x))) if str(x) != 'nan' else 'nan'
+                            )
                         )
         return df
 
