@@ -192,10 +192,10 @@ Contains the following tables : \n""".format(self.name, self.label)
         assert self.hdf5_file_path is not None
         assert os.path.exists(self.hdf5_file_path), '{} is not a valid path. This could happen because your data were not builded yet. Please consider using a rebuild option in your code.'.format(
             self.hdf5_file_path)
-        store = pandas.HDFStore(self.hdf5_file_path)
 
         try:
-            df = store.select(table)
+            df = pandas.read_hdf(self.hdf5_file_path, table)
+
         except KeyError:
             log.error('No table {} in the file {}'.format(table, self.hdf5_file_path))
             log.error('This could happen because your data were not builded yet. Available tables are: {}'.format(store.keys()))
