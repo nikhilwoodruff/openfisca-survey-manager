@@ -51,6 +51,8 @@ class AbstractSurveyScenario(object):
     varying_variable = None
     weight_variable_by_entity = None
     year = None
+    mtr_group = None
+    mtr_varying_variable_level = False
 
     def build_input_data(self, **kwargs):
         """Builds input data
@@ -279,12 +281,21 @@ class AbstractSurveyScenario(object):
         varying_variable = self.varying_variable
         if use_baseline:
             simulation = self.baseline_simulation
-            assert self._modified_baseline_simulation is not None
-            modified_simulation = self._modified_baseline_simulation
+            if self.mtr_group is None:
+                assert self._modified_baseline_simulation is not None
+                modified_simulation = self._modified_baseline_simulation
+            else:
+                assert self._modified_baseline_simulations is not None
+                modified_simulations = self._modified_baseline_simulations
         else:
-            assert self._modified_simulation is not None
             simulation = self.simulation
-            modified_simulation = self._modified_simulation
+            if self.mtr_group is None:
+                assert self._modified_simulation is not None
+                modified_simulation = self._modified_simulation
+            else:
+                assert self._modified_simulations is not None
+                modified_simulations = self._modified_simulations
+
 
         assert target_variable in self.tax_benefit_system.variables
 
@@ -296,30 +307,34 @@ class AbstractSurveyScenario(object):
 
         assert variables_belong_to_same_entity or varying_variable_belongs_to_person_entity
 
-        if variables_belong_to_same_entity:
-            modified_varying = modified_simulation.calculate_add(varying_variable, period = period)
-            varying = simulation.calculate_add(varying_variable, period = period)
+        varying = simulation.calculate_add(varying_variable, period = period)
+        
+
+        target_entity = self.tax_benefit_system.variables[target_variable].entity
+        if not target_entity.is_person:
+            target_population = self.simulation.populations[target_entity.key]
+            projection_function = target_population.project
+            if not varying_variable_belongs_to_person_entity:
+                varying_entity = self.simulation.populations[self.tax_benefit_system.variables[varying_variable].entity.key]
+                projection_function = lambda x : varying_entity.sum(projection_function(x)) / varying_entity.nb_persons()
         else:
-            target_variable_entity_key = self.tax_benefit_system.variables[target_variable].entity.key
+            projection_function = lambda arr : arr
+        
+        target = projection_function(simulation.calculate_add(target_variable, period = period))
 
-            def cast_to_target_entity(simulation):
-                population = simulation.populations[target_variable_entity_key]
-                df = (pd.DataFrame(
-                    dict({
-                        'members_entity_id': population._members_entity_id,
-                        varying_variable: simulation.calculate_add(varying_variable, period = period)
-                        })
-                    ).groupby('members_entity_id').sum())
-                varying_variable_for_target_entity = df.loc[population.ids, varying_variable].values
-                return varying_variable_for_target_entity
-
-            modified_varying = cast_to_target_entity(modified_simulation)
-            varying = cast_to_target_entity(simulation)
-
-        modified_target = modified_simulation.calculate_add(target_variable, period = period)
-        target = simulation.calculate_add(target_variable, period = period)
+        if self.mtr_group is None:
+            modified_varying = modified_simulation.calculate_add(varying_variable, period = period)
+            modified_target = projection_function(modified_simulation.calculate_add(target_variable, period = period))
+        else:
+            group_ids = self.simulation.populations[self.mtr_group].members_position
+            modified_varyings = np.array([modified_simulation.calculate_add(varying_variable, period = period) for modified_simulation in modified_simulations])
+            modified_varying = modified_varyings[group_ids, np.arange(len(group_ids))]
+            modified_targets = np.array([projection_function(modified_simulation.calculate_add(target_variable, period = period)) for modified_simulation in modified_simulations])
+            modified_target = modified_targets[group_ids, np.arange(len(group_ids))]
 
         marginal_rate = 1 - (modified_target - target) / (modified_varying - varying)
+        if self.mtr_varying_variable_level:
+            return self.simulation.populations[target_entity.key].sum(marginal_rate)
         return marginal_rate
 
     def compute_pivot_table(self, aggfunc = 'mean', columns = None, difference = False, filter_by = None, index = None,
@@ -900,17 +915,37 @@ class AbstractSurveyScenario(object):
 
         # Inverting reform and baseline because we are more likely
         # to use baseline input in reform than the other way around
+
         if self.baseline_tax_benefit_system is not None:
             self.new_simulation(debug = debug, data = data, trace = trace, memory_config = memory_config,
                 use_baseline = True)
+            
+            assert self.mtr_group is None or self.mtr_group in self.simulation.populations, "Invalid MTR group"
+            if self.mtr_group is not None:
+                self._mtr_group_size = self.simulation.populations[self.mtr_group].nb_persons().max()
+            
             if use_marginal_tax_rate:
-                self.new_simulation(debug = debug, data = data, trace = trace, memory_config = memory_config, use_baseline = True,
-                    marginal_tax_rate_only = True)
-
+                if self.mtr_group is None:
+                    self.new_simulation(debug = debug, data = data, trace = trace, memory_config = memory_config, use_baseline = True,
+                        marginal_tax_rate_only = True)
+                else:
+                    mtr_group_index = self.simulation.populations[self.mtr_group].members_position
+                    self._modified_baseline_simulations = [self.new_simulation(debug = debug, data = data, trace = trace, memory_config = memory_config, use_baseline = True,
+                        marginal_tax_rate_only = True, mtr_filter = mtr_group_index == i) for i in range(self._mtr_group_size)]
+        
+        
         # Note that I can pass a :class:`pd.DataFrame` directly, if I don't want to rebuild the data.
         self.new_simulation(debug = debug, data = data, trace = trace, memory_config = memory_config)
+        assert self.mtr_group is None or self.mtr_group in self.simulation.populations, "Invalid MTR group"
+        if self.mtr_group is not None:
+            self._mtr_group_size = self.simulation.populations[self.mtr_group].nb_persons().max()
         if use_marginal_tax_rate:
-            self.new_simulation(debug = debug, data = data, trace = trace, memory_config = memory_config, marginal_tax_rate_only = True)
+            if self.mtr_group is None:
+                self.new_simulation(debug = debug, data = data, trace = trace, memory_config = memory_config, marginal_tax_rate_only = True)
+            else:
+                mtr_group_index = self.simulation.populations[self.mtr_group].members_position
+                self._modified_simulations = [self.new_simulation(debug = debug, data = data, trace = trace, memory_config = memory_config, use_baseline = True,
+                        marginal_tax_rate_only = True, mtr_filter = mtr_group_index == i) for i in range(self._mtr_group_size)]
 
         if calibration_kwargs is not None:
             assert set(calibration_kwargs.keys()).issubset(set(
@@ -1029,7 +1064,7 @@ class AbstractSurveyScenario(object):
 
         return simulation
 
-    def new_simulation(self, debug = False, use_baseline = False, trace = False, data = None, memory_config = None, marginal_tax_rate_only = False):
+    def new_simulation(self, debug = False, use_baseline = False, trace = False, data = None, memory_config = None, marginal_tax_rate_only = False, mtr_filter = None):
         assert self.tax_benefit_system is not None
         tax_benefit_system = self.tax_benefit_system
         if self.baseline_tax_benefit_system is not None and use_baseline:
@@ -1053,7 +1088,7 @@ class AbstractSurveyScenario(object):
 
         #
         if marginal_tax_rate_only:
-            self._apply_modification(simulation, period)
+            self._apply_modification(simulation, period, condition = mtr_filter)
             if not use_baseline:
                 self._modified_simulation = simulation
             else:
@@ -1426,14 +1461,14 @@ class AbstractSurveyScenario(object):
                         np.median(array),
                         ))
 
-    def _apply_modification(self, simulation, period):
+    def _apply_modification(self, simulation, period, condition = None):
         period = periods.period(period)
         varying_variable = self.varying_variable
         definition_period = simulation.tax_benefit_system.variables[varying_variable].definition_period
 
         def set_variable(varying_variable, varying_variable_value, period_):
-            delta = self.variation_factor * varying_variable_value
-            new_variable_value = varying_variable_value + delta
+            delta = self.variation_factor * np.abs(varying_variable_value)
+            new_variable_value = np.where(condition, varying_variable_value + delta, varying_variable_value)
             simulation.delete_arrays(varying_variable, period_)
             simulation.set_input(varying_variable, period_, new_variable_value)
 
