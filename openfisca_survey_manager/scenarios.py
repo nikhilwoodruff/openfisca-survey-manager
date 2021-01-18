@@ -334,7 +334,7 @@ class AbstractSurveyScenario(object):
 
         marginal_rate = 1 - (modified_target - target) / (modified_varying - varying)
         if self.mtr_varying_variable_level:
-            return self.simulation.populations[target_entity.key].sum(marginal_rate)
+            return self.simulation.populations[target_entity.key].sum(marginal_rate) / self.simulation.populations[target_entity.key].nb_persons()
         return marginal_rate
 
     def compute_pivot_table(self, aggfunc = 'mean', columns = None, difference = False, filter_by = None, index = None,
